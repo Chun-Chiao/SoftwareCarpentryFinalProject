@@ -31,7 +31,7 @@ def build_content_matrix(
         Tuple of:
           - CSR matrix of shape (n_items, n_features')
           - Ordered list of track_ids corresponding to rows
-          - List of feature names (after weighting and PCA, PCA features named 'pc_{i}')
+          - List of feature names (after weighting and PCA)
     """
     # Copy metadata and track order
     meta = metadata.copy()
@@ -41,12 +41,11 @@ def build_content_matrix(
     genre_encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
     genre_array = genre_encoder.fit_transform(meta[['track_genre']])
     raw_genre_cols = genre_encoder.get_feature_names_out(['track_genre'])
-    genre_cols = [col.replace('track_genre_', 'genre_')
-                  for col in raw_genre_cols]
+    genre_cols = [col.replace('track_genre_', 'genre_') for col in raw_genre_cols]
     # Apply genre weight
-    genre_array = genre_array * genre_weight
+    genre_array *= genre_weight
 
-    # Numeric audio features
+    # Numeric features
     numeric_cols = [
         'danceability', 'energy', 'key', 'loudness', 'mode',
         'speechiness', 'acousticness', 'instrumentalness',
@@ -59,20 +58,19 @@ def build_content_matrix(
     scaler = StandardScaler()
     numeric_scaled = scaler.fit_transform(numeric_data)
     # Apply audio weight
-    numeric_scaled = numeric_scaled * audio_weight
+    numeric_scaled *= audio_weight
 
     # Combine features
     features = np.hstack([genre_array, numeric_scaled])
     feature_names = genre_cols + numeric_cols
 
-    # Optionally reduce dimensionality
+    # PCA reduction
     if pca_components is not None and pca_components > 0:
         pca = PCA(n_components=pca_components)
-        reduced = pca.fit_transform(features)
-        features = reduced
+        features = pca.fit_transform(features)
         feature_names = [f"pc_{i+1}" for i in range(pca_components)]
 
-    # Convert to sparse matrix
+    # Convert to sparse
     mat = csr_matrix(features)
     return mat, track_ids, feature_names
 
@@ -83,15 +81,8 @@ def compute_content_similarity(
     track_ids: List[str]
 ) -> np.ndarray:
     """
-    Compute cosine similarity vector between seed track and all tracks.
-
-    Args:
-        seed_id: track_id to use as reference.
-        content_mat: CSR matrix from build_content_matrix.
-        track_ids: List of track IDs matching matrix rows.
-
-    Returns:
-        Array of similarity scores (shape: [n_items]).
+    Compute cosine similarity vector between seed track and all tracks,
+    excluding the seed by setting its similarity to -inf.
     """
     if seed_id not in track_ids:
         raise ValueError(f"Seed track ID '{seed_id}' not found")
@@ -101,7 +92,8 @@ def compute_content_similarity(
     norms = np.linalg.norm(dense, axis=1) * np.linalg.norm(seed_vec)
     norms[norms == 0] = 1e-10
     sims = (dense @ seed_vec) / norms
-    sims[idx] = -np.inf  # exclude self
+    # Exclude self
+    sims[idx] = -np.inf
     return sims
 
 
@@ -112,25 +104,16 @@ def hybrid_scores(
 ) -> np.ndarray:
     """
     Combine content similarity and popularity into a hybrid score.
-
-    Args:
-        content_sims: Array of content-based similarity scores.
-        popularity: Array of popularity scores (0-100).
-        alpha: Weight for content vs. popularity (0..1).
-
-    Returns:
-        Hybrid score array.
     """
-    pop_norm = (popularity - popularity.min()) / \
-        (popularity.max() - popularity.min() + 1e-10)
+    pop_norm = (popularity - popularity.min()) / (popularity.max() - popularity.min() + 1e-10)
     return alpha * content_sims + (1 - alpha) * pop_norm
 
 
 def recommend_hybrid(
     seed_id: str,
-    content_mat,
-    track_ids,
-    metadata,
+    content_mat=None,
+    track_ids=None,
+    metadata=None,
     genre_weight: float = 1.0,
     audio_weight: float = 1.0,
     pca_components: int = None,
@@ -138,28 +121,36 @@ def recommend_hybrid(
     top_n: int = 10
 ) -> List[str]:
     """
-    Recommend top_n tracks using hybrid content+popularity scores.
-
-    Args:
-        seed_id: Seed track ID.
-        content_mat: Ignored; matrix is rebuilt with given weights/PCA.
-        track_ids: Ignored; order derived from metadata.
-        metadata: Original metadata DataFrame (for popularity).
-        genre_weight, audio_weight, pca_components: passed to build_content_matrix.
-        alpha: hybrid weight.
-        top_n: number of recommendations.
-
-    Returns:
-        List of recommended track IDs.
+    Recommend top_n tracks using hybrid content+popularity scores,
+    excluding the seed itself and limiting recommendations to available tracks.
     """
+    if metadata is None:
+        raise ValueError("`metadata` must be provided when `content_mat` is None")
+
+    # Rebuild feature matrix with weights/PCA
     mat, ids, _ = build_content_matrix(
         metadata,
         genre_weight=genre_weight,
         audio_weight=audio_weight,
         pca_components=pca_components
     )
+
+    # Compute content similarity scores (seed excluded)
     sims = compute_content_similarity(seed_id, mat, ids)
+
+    # Get popularity array
     pops = metadata['popularity'].to_numpy(dtype=float)
+
+    # Compute hybrid scores
     hybrid = hybrid_scores(sims, pops, alpha=alpha)
-    top_idx = np.argsort(hybrid)[-top_n:][::-1]
-    return [ids[i] for i in top_idx]
+
+    # Rank tracks by descending hybrid score
+    ranked_idxs = np.argsort(hybrid)[::-1]
+
+    # Determine how many to return (exclude seed)
+    max_recs = max(0, len(ids) - 1)
+    k = min(top_n, max_recs)
+
+    # Select top k recommendations
+    top_idxs = ranked_idxs[:k]
+    return [ids[i] for i in top_idxs]

@@ -8,25 +8,19 @@ Removes duplicate track rows based on identical artist, album, and track name.
 import pandas as pd
 from typing import Tuple
 
-
 def load_interactions(path: str) -> pd.DataFrame:
     """
     Load user–item interactions from a CSV file.
 
-    Expects columns: ['user_id', 'track_id', 'rating'].
-
-    Args:
-        path: Path to the interactions CSV.
-
-    Returns:
-        DataFrame with ['user_id', 'track_id', 'rating'].
+    Expects columns: ['user_id', 'track_id', 'rating'], in that exact order.
     """
     df = pd.read_csv(path)
-    expected = {'user_id', 'track_id', 'rating'}
-    missing = expected - set(df.columns)
+    expected_cols = ['user_id', 'track_id', 'rating']
+    missing = set(expected_cols) - set(df.columns)
     if missing:
         raise ValueError(f"Missing columns in interactions file: {missing}")
-    return df[list(expected)].copy()
+    # Enforce the exact column ordering
+    return df[expected_cols].copy()
 
 
 def load_metadata(path: str) -> pd.DataFrame:
