@@ -37,8 +37,7 @@ This project builds a lightweight recommendation engine that:
 ├── data/                      # Metadata CSV (e.g., dataset_clean.csv)
 ├── music_recommender/         # Core modules
 │   ├── data_loader.py         # Load & dedupe metadata
-│   ├── feature_engineering.py # Build feature matrix & hybrid scoring
-│   └── evaluate.py            # (future) metrics: Precision@K, MAP
+│   └── feature_engineering.py # Build feature matrix & hybrid scoring
 ├── scripts/                   # CLI entrypoint
 │   └── recommender.py         # Runs the hybrid recommender
 ├── tests/                     # pytest unit tests
