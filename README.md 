@@ -33,11 +33,12 @@ This project builds a lightweight recommendation engine that:
 
 ## Repository Structure
 
-```
+```text
 ├── data/                      # Metadata CSV (e.g., dataset_clean.csv)
 ├── music_recommender/         # Core modules
 │   ├── data_loader.py         # Load & dedupe metadata
-│   └── feature_engineering.py # Build feature matrix & hybrid scoring
+│   ├── feature_engineering.py # Build feature matrix & hybrid scoring
+│   └── evaluate.py            # (future) metrics: Precision@K, MAP
 ├── scripts/                   # CLI entrypoint
 │   └── recommender.py         # Runs the hybrid recommender
 ├── tests/                     # pytest unit tests
@@ -92,6 +93,8 @@ To ensure Python can find and import the `music_recommender` modules, install yo
    This tells Python to treat your project root as an importable package location.
 
 After one of these steps, you can run scripts and tests without import errors.
+
+---
 
 ## Usage
 
