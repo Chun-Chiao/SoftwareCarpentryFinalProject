@@ -34,12 +34,11 @@ This project builds a lightweight recommendation engine that:
 ## Repository Structure
 
 ```text
-├── data/                      # Metadata CSV (e.g., dataset_clean.csv)
+├── dataset.csv                # Metadata CSV (e.g., dataset_clean.csv)
 ├── music_recommender/         # Core modules
 │   ├── data_loader.py         # Load & dedupe metadata
 │   └── feature_engineering.py # Build feature matrix & hybrid scoring
-├── scripts/                   # CLI entrypoint
-│   └── recommender.py         # Runs the hybrid recommender
+├── recommender.py             # Runs the hybrid recommender
 ├── tests/                     # pytest unit tests
 │   ├── test_data_loader.py
 │   └── test_feature_engineering.py
@@ -101,7 +100,7 @@ Run the hybrid recommender via the CLI:
 
 ```bash
 python scripts/recommender.py \
-  --metadata    data/dataset_clean.csv \
+  --metadata    dataset.csv \
   --seed        <TRACK_ID> \
   --top-n       10 \
   --genre-weight 1.0 \
@@ -171,7 +170,7 @@ Make sure you have `pytest` installed (it’s included in `requirements.txt`).
 
 ```bash
 python scripts/recommender.py \
-  -m data/dataset_clean.csv \
+  -m dataset.csv \
   -s 3n3Ppam7vgaVa1iaRUc9Lp \
   -n 5 \
   --genre-weight 2.0 \
@@ -200,5 +199,5 @@ pip install -r requirements.txt
 ```
 
 ---
-
+spotify dataset source: https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset
 *Happy recommending!*
